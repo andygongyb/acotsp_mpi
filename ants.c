@@ -75,6 +75,8 @@ double **total;
 double **prob_of_selection;
 
 long int n_ants;  /* number of ants */
+long int total_ants;
+long int padded_ants;
 long int nn_ants; /* length of nearest neighbor lists for the ants'
 			 solution construction */
 

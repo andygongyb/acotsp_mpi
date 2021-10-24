@@ -614,6 +614,14 @@ int main(int argc, char *argv[])
 
     init_program(argc, argv);
 
+    long int *gathered_tours = NULL;
+
+    if (!rank) {
+        printf("n_procs: %d\n", procs);
+        write_params();
+        gathered_tours = malloc((n + 1) * procs * sizeof(long int));
+    }
+
     instance.nn_list = compute_nn_lists();
     pheromone = generate_double_matrix(n, n);
     total = generate_double_matrix(n, n);
@@ -622,15 +630,16 @@ int main(int argc, char *argv[])
 
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
+    double comm_time = 0.0, comm_start = 0.0;
 
-    printf("Initialization took %.10f seconds\n", time_used);
+    // printf("Initialization took %.10f seconds\n", time_used);
 
     for (n_try = 0; n_try < max_tries; n_try++)
     {
 
         init_try(n_try);
 
-        while (!termination_condition())
+        for (i = 0; i < max_tours; ++i)
         {
 
             construct_solutions();
@@ -638,20 +647,37 @@ int main(int argc, char *argv[])
             if (ls_flag > 0)
                 local_search();
 
-            update_statistics();
+            long int best_ant = find_best();
 
-            pheromone_trail_update();
+            comm_start = MPI_Wtime();
+            MPI_Gather(ant[best_ant].tour, n + 1, MPI_LONG, gathered_tours, n + 1, MPI_LONG, 0, MPI_COMM_WORLD);
+            comm_time += MPI_Wtime() - comm_start;
 
-            search_control_and_statistics();
+            if (!rank)
+            {
+                update_statistics();
+
+                pheromone_trail_update();
+
+                search_control_and_statistics();
+            }
+
+            comm_start = MPI_Wtime();
+            MPI_Bcast(pheromone[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Bcast(total[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            comm_time += MPI_Wtime() - comm_start;
 
             iteration++;
         }
-        exit_try(n_try);
+        if (!rank)
+            exit_try(n_try);
     }
-    exit_program();
+    if (!rank) {
+        exit_program();
 
-    double end = MPI_Wtime();
-    printf("MPI Wtime: %lf\n", end - start);
+        double end = MPI_Wtime();
+        printf("MPI Wtime: %lf, MPI COMM time: %lf\n", end - start, comm_time);
+    }
 
     free(instance.distance);
     free(instance.nn_list);
@@ -675,6 +701,10 @@ int main(int argc, char *argv[])
         free(prob_of_selection[i]);
     }
     free(prob_of_selection);
+
+    if (!rank) {
+        free(gathered_tours);
+    }
 
     MPI_Finalize();
 

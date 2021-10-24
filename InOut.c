@@ -126,7 +126,7 @@ struct point * read_etsp(const char *tsp_file_name)
 	exit(1);
     }
     assert(tsp_file != NULL);
-    printf("\nreading tsp-file %s ... \n\n", tsp_file_name);
+    // printf("\nreading tsp-file %s ... \n\n", tsp_file_name);
 
     fscanf(tsp_file,"%s", buf);
     while ( strcmp("NODE_COORD_SECTION", buf) != 0 ) {
@@ -686,7 +686,7 @@ void init_program( long int argc, char *argv[] )
 
   char temp_buffer[LINE_BUF_LEN];
 
-  printf(PROG_ID_STR);
+//   printf(PROG_ID_STR);
   set_default_parameters();
   setbuf(stdout,NULL);
   parse_commandline(argc, argv);
@@ -731,15 +731,14 @@ void init_program( long int argc, char *argv[] )
       stat_report = NULL;
   }
    
-  printf("calculating distance matrix ..\n\n");
+//   printf("calculating distance matrix ..\n\n");
   instance.distance = compute_distances();
-  printf(" .. done\n");
-  write_params();
+//   printf(" .. done\n");
   if (comp_report)
       fprintf(comp_report,"begin problem %s\n",name_buf);
-  printf("allocate ants' memory ..\n\n");
+//   printf("allocate ants' memory ..\n\n");
   allocate_ants();
-  printf(" .. done\n");
+//   printf(" .. done\n");
 }
 
 
