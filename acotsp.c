@@ -656,6 +656,8 @@ int main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
     double comm_time = 0.0, comm_start = 0.0;
+    double multi_node_time = 0.0, multi_node_start = 0.0;
+    double single_node_time = 0.0, single_node_start = 0.0;
 
     // printf("Initialization took %.10f seconds\n", time_used);
 
@@ -667,6 +669,7 @@ int main(int argc, char *argv[])
         for (i = 0; i < max_tours; ++i)
         {
 
+            multi_node_start = MPI_Wtime();
             construct_solutions();
 
             if (ls_flag > 0)
@@ -674,10 +677,14 @@ int main(int argc, char *argv[])
 
             long int best_ant = find_best();
             ant[best_ant].tour[n + 1] = ant[best_ant].tour_length;
+            
+            comm_start = MPI_Wtime();
+            multi_node_time += comm_start - multi_node_start;
 
-            comm_start = MPI_Wtime();            
             MPI_Reduce(ant[best_ant].tour, a.tour, 1, tour_type, ant_reduce_op, 0, MPI_COMM_WORLD);
-            comm_time += MPI_Wtime() - comm_start;
+            
+            single_node_start = MPI_Wtime();
+            comm_time += single_node_start - comm_start;
 
             if (!rank)
             {
@@ -691,6 +698,8 @@ int main(int argc, char *argv[])
             }
 
             comm_start = MPI_Wtime();
+            single_node_time += comm_start - single_node_start;
+
             MPI_Bcast(pheromone[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
             MPI_Bcast(total[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
             comm_time += MPI_Wtime() - comm_start;
@@ -704,7 +713,10 @@ int main(int argc, char *argv[])
         exit_program();
 
         double end = MPI_Wtime();
-        printf("MPI Wtime: %lf, MPI COMM time: %lf\n", end - start, comm_time);
+        printf("MPI wall time: %lf\n", end - start);
+        printf("MPI comm time: %lf\n", comm_time);
+        printf("MPI multi-node time: %lf\n", multi_node_time);
+        printf("MPI single-node time: %lf\n", single_node_time);
     }
 
     free(instance.distance);
