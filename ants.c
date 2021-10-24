@@ -126,7 +126,7 @@ void allocate_ants(void)
     }
     for (i = 0; i < n_ants; i++)
     {
-        ant[i].tour = calloc(n + 1, sizeof(long int));
+        ant[i].tour = calloc(n + 2, sizeof(long int));
         ant[i].visited = calloc(n, sizeof(char));
     }
 

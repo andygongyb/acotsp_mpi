@@ -590,6 +590,23 @@ void pheromone_trail_update(void)
     }
 }
 
+void ant_reduce(void *invec, void *inoutvec, int *len, MPI_Datatype *datatype) {
+    assert(*datatype == MPI_LONG);
+    long int * restrict in = invec;
+    long int * restrict inout = inoutvec;
+
+    long int i;
+
+    if (in[*len - 1] < inout[*len - 1])
+    {
+        #pragma omp simd
+        for (i = 0; i < *len; ++i)
+        {
+            inout[i] = in[i];
+        }
+    }
+}
+
 /* --- main program ------------------------------------------------------ */
 
 int main(int argc, char *argv[])
@@ -616,10 +633,11 @@ int main(int argc, char *argv[])
 
     long int *gathered_tours = NULL;
 
+    ant_struct a;
     if (!rank) {
         printf("n_procs: %d\n", procs);
         write_params();
-        gathered_tours = malloc((n + 1) * procs * sizeof(long int));
+        a.tour = calloc(n + 2, sizeof(long int));
     }
 
     instance.nn_list = compute_nn_lists();
@@ -627,6 +645,9 @@ int main(int argc, char *argv[])
     total = generate_double_matrix(n, n);
 
     time_used = elapsed_time(VIRTUAL);
+
+    MPI_Op ant_reduce_op;
+    MPI_Op_create(ant_reduce, TRUE, &ant_reduce_op);
 
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
@@ -648,30 +669,21 @@ int main(int argc, char *argv[])
                 local_search();
 
             long int best_ant = find_best();
+            ant[best_ant].tour[n + 1] = ant[best_ant].tour_length;
 
-            comm_start = MPI_Wtime();
-            MPI_Gather(ant[best_ant].tour, n + 1, MPI_LONG, gathered_tours, n + 1, MPI_LONG, 0, MPI_COMM_WORLD);
+            comm_start = MPI_Wtime();            
+            MPI_Reduce(ant[best_ant].tour, a.tour, n + 2, MPI_LONG, ant_reduce_op, 0, MPI_COMM_WORLD);
             comm_time += MPI_Wtime() - comm_start;
 
             if (!rank)
             {
-                ant_struct a;
-                a.tour = gathered_tours;
-                a.tour_length = compute_tour_length(gathered_tours);
-                for (j = 1; j < procs; ++j)
-                {
-                    long int l = compute_tour_length(gathered_tours + (n + 1) * j);
-                    if (l < a.tour_length) {
-                        a.tour_length = l;
-                        a.tour = gathered_tours + (n + 1) * j;
-                    }
-                }
+                a.tour_length = a.tour[n + 1];
 
                 update_statistics(&a);
 
                 pheromone_trail_update();
 
-                search_control_and_statistics();
+                // search_control_and_statistics();
             }
 
             comm_start = MPI_Wtime();
@@ -715,9 +727,10 @@ int main(int argc, char *argv[])
     free(prob_of_selection);
 
     if (!rank) {
-        free(gathered_tours);
+        free(a.tour);
     }
 
+    MPI_Op_free(&ant_reduce_op);
     MPI_Finalize();
 
     return (0);
