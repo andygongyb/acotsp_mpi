@@ -591,16 +591,16 @@ void pheromone_trail_update(void)
 }
 
 void ant_reduce(void *invec, void *inoutvec, int *len, MPI_Datatype *datatype) {
-    assert(*datatype == MPI_LONG);
+
     long int * restrict in = invec;
     long int * restrict inout = inoutvec;
 
     long int i;
 
-    if (in[*len - 1] < inout[*len - 1])
+    if (in[n + 1] < inout[n + 1])
     {
         #pragma omp simd
-        for (i = 0; i < *len; ++i)
+        for (i = 0; i < n + 2; ++i)
         {
             inout[i] = in[i];
         }
@@ -649,6 +649,10 @@ int main(int argc, char *argv[])
     MPI_Op ant_reduce_op;
     MPI_Op_create(ant_reduce, TRUE, &ant_reduce_op);
 
+    MPI_Datatype tour_type;
+    MPI_Type_contiguous(n + 2, MPI_LONG, &tour_type);
+    MPI_Type_commit(&tour_type);
+
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
     double comm_time = 0.0, comm_start = 0.0;
@@ -672,7 +676,7 @@ int main(int argc, char *argv[])
             ant[best_ant].tour[n + 1] = ant[best_ant].tour_length;
 
             comm_start = MPI_Wtime();            
-            MPI_Reduce(ant[best_ant].tour, a.tour, n + 2, MPI_LONG, ant_reduce_op, 0, MPI_COMM_WORLD);
+            MPI_Reduce(ant[best_ant].tour, a.tour, 1, tour_type, ant_reduce_op, 0, MPI_COMM_WORLD);
             comm_time += MPI_Wtime() - comm_start;
 
             if (!rank)
