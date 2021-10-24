@@ -64,6 +64,10 @@
 #include "TSP.h"
 #include "timer.h"
 #include "ls.h"
+#include "mpi.h"
+#include "omp.h"
+
+int procs, rank;
 
 long int termination_condition(void)
 /*    
@@ -73,8 +77,11 @@ long int termination_condition(void)
       (SIDE)EFFECTS:  none
 */
 {
-    return (((n_tours >= max_tours) && (elapsed_time(VIRTUAL) >= max_time)) ||
-            (best_so_far_ant->tour_length <= optimal));
+    // printf("t: %ld max: %ld\n", n_tours, max_tours);
+    // return (((n_tours >= max_tours) && (elapsed_time(VIRTUAL) >= max_time)) ||
+    //         (best_so_far_ant->tour_length <= optimal));
+
+    return n_tours >= max_tours;
 }
 
 void construct_solutions(void)
@@ -85,41 +92,64 @@ void construct_solutions(void)
       (SIDE)EFFECTS:  when finished, all ants of the colony have constructed a solution  
 */
 {
-    long int k;    /* counter variable */
-    long int step; /* counter of the number of construction steps */
+    long int k; /* counter variable */
+    // long int step; /* counter of the number of construction steps */
 
     TRACE(printf("construct solutions for all ants\n"););
 
-    /* Mark all cities as unvisited */
+#pragma omp parallel for
     for (k = 0; k < n_ants; k++)
     {
-        ant_empty_memory(&ant[k]);
-    }
+        long int step = 0;
 
-    step = 0;
-    /* Place the ants on same initial city */
-    for (k = 0; k < n_ants; k++)
+        ant_empty_memory(&ant[k]);
         place_ant(&ant[k], step);
 
-    while (step < n - 1)
-    {
-        step++;
-        for (k = 0; k < n_ants; k++)
+        while (step < n - 1)
         {
+            step++;
             neighbour_choose_and_move_to_next(&ant[k], step);
-            if (acs_flag)
-                local_acs_pheromone_update(&ant[k], step);
+            // if (acs_flag)
+            //     local_acs_pheromone_update(&ant[k], step);
         }
-    }
 
-    step = n;
-    for (k = 0; k < n_ants; k++)
-    {
+        step = n;
         ant[k].tour[n] = ant[k].tour[0];
         ant[k].tour_length = compute_tour_length(ant[k].tour);
-        if (acs_flag)
-            local_acs_pheromone_update(&ant[k], step);
+        // if (acs_flag)
+        //     local_acs_pheromone_update(&ant[k], step);
     }
+
+    // /* Mark all cities as unvisited */
+    // for (k = 0; k < n_ants; k++)
+    // {
+    //     ant_empty_memory(&ant[k]);
+    // }
+
+    // step = 0;
+    // /* Place the ants on same initial city */
+    // for (k = 0; k < n_ants; k++)
+    //     place_ant(&ant[k], step);
+
+    // while (step < n - 1)
+    // {
+    //     step++;
+    //     for (k = 0; k < n_ants; k++)
+    //     {
+    //         neighbour_choose_and_move_to_next(&ant[k], step);
+    //         if (acs_flag)
+    //             local_acs_pheromone_update(&ant[k], step);
+    //     }
+    // }
+
+    // step = n;
+    // for (k = 0; k < n_ants; k++)
+    // {
+    //     ant[k].tour[n] = ant[k].tour[0];
+    //     ant[k].tour_length = compute_tour_length(ant[k].tour);
+    //     if (acs_flag)
+    //         local_acs_pheromone_update(&ant[k], step);
+    // }
     n_tours += n_ants;
 }
 
@@ -209,6 +239,7 @@ void local_search(void)
 
     TRACE(printf("apply local search to all ants\n"););
 
+#pragma omp parallel for
     for (k = 0; k < n_ants; k++)
     {
         switch (ls_flag)
@@ -227,8 +258,8 @@ void local_search(void)
             exit(1);
         }
         ant[k].tour_length = compute_tour_length(ant[k].tour);
-        if (termination_condition())
-            return;
+        // if (termination_condition())
+        //     return;
     }
 }
 
@@ -573,8 +604,13 @@ int main(int argc, char *argv[])
 */
 
     long int i;
+    int nt = omp_get_max_threads();
 
     start_timers();
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &procs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     init_program(argc, argv);
 
@@ -583,6 +619,10 @@ int main(int argc, char *argv[])
     total = generate_double_matrix(n, n);
 
     time_used = elapsed_time(VIRTUAL);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    double start = MPI_Wtime();
+
     printf("Initialization took %.10f seconds\n", time_used);
 
     for (n_try = 0; n_try < max_tries; n_try++)
@@ -610,6 +650,9 @@ int main(int argc, char *argv[])
     }
     exit_program();
 
+    double end = MPI_Wtime();
+    printf("MPI Wtime: %lf\n", end - start);
+
     free(instance.distance);
     free(instance.nn_list);
     free(pheromone);
@@ -626,6 +669,14 @@ int main(int argc, char *argv[])
     free(ant);
     free(best_so_far_ant->tour);
     free(best_so_far_ant->visited);
+
+    for (i = 0; i < nt; ++i)
+    {
+        free(prob_of_selection[i]);
+    }
     free(prob_of_selection);
+
+    MPI_Finalize();
+
     return (0);
 }

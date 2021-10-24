@@ -78,7 +78,7 @@ extern ant_struct *restart_best_ant;  /* struct that contains the restart-best a
 extern double   **pheromone; /* pheromone matrix, one entry for each arc */
 extern double   **total;     /* combination of pheromone times heuristic information */
 
-extern double   *prob_of_selection;
+extern double   **prob_of_selection;
 
 
 extern long int n_ants;      /* number of ants */

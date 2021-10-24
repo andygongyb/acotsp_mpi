@@ -286,7 +286,7 @@ void write_report( void )
       COMMENTS: none
 */
 {
-    printf("best %ld, iteration: %ld, time %.2f\n",best_so_far_ant->tour_length,iteration,elapsed_time( VIRTUAL));
+    printf("best %ld, iteration: %ld, time %.2f\n",best_so_far_ant->tour_length,iteration,elapsed_time( REAL));
     if (comp_report) 
         fprintf(comp_report,
                 "best %ld\t iteration %ld\t tours %ld\t time %.3f\n",
