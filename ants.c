@@ -460,8 +460,9 @@ void place_ant(ant_struct *a, long int step)
 */
 {
     long int rnd;
+    int ti = omp_get_thread_num();
 
-    rnd = (long int)(ran01(&seed) * (double)n); /* random number between 0 .. n-1 */
+    rnd = (long int)(ran01(thread_seed + ti) * (double)n); /* random number between 0 .. n-1 */
     a->tour[step] = rnd;
     a->visited[rnd] = TRUE;
 }
@@ -595,8 +596,9 @@ void neighbour_choose_and_move_to_next(ant_struct *a, long int phase)
     /*  double   *prob_of_selection; */ /* stores the selection probabilities 
 	of the nearest neighbor cities */
     double *prob_ptr;
+    int ti = omp_get_thread_num();
 
-    if ((q_0 > 0.0) && (ran01(&seed) < q_0))
+    if ((q_0 > 0.0) && (ran01(thread_seed + ti) < q_0))
     {
         /* with a probability q_0 make the best possible choice
 	   according to pheromone trails and heuristic information */
@@ -608,7 +610,6 @@ void neighbour_choose_and_move_to_next(ant_struct *a, long int phase)
         return;
     }
 
-    int ti = omp_get_thread_num();
     prob_ptr = prob_of_selection[ti];
 
     current_city = a->tour[phase - 1]; /* current_city city of ant k */
@@ -634,7 +635,7 @@ void neighbour_choose_and_move_to_next(ant_struct *a, long int phase)
     {
         /* at least one neighbor is eligible, chose one according to the
 	   selection probabilities */
-        rnd = ran01(&seed);
+        rnd = ran01(thread_seed + ti);
         rnd *= sum_prob;
         i = 0;
         partial_sum = prob_ptr[i];
@@ -878,6 +879,7 @@ void bwas_pheromone_mutation(void)
     long int i, j, k;
     long int num_mutations;
     double avg_trail = 0.0, mutation_strength = 0.0, mutation_rate = 0.3;
+    int ti = omp_get_thread_num();
 
     TRACE(printf("bwas specific: pheromone mutation\n"););
 
@@ -909,9 +911,9 @@ void bwas_pheromone_mutation(void)
 
     for (i = 0; i < num_mutations; i++)
     {
-        j = (long int)(ran01(&seed) * (double)n);
-        k = (long int)(ran01(&seed) * (double)n);
-        if (ran01(&seed) < 0.5)
+        j = (long int)(ran01(thread_seed + ti) * (double)n);
+        k = (long int)(ran01(thread_seed + ti) * (double)n);
+        if (ran01(thread_seed + ti) < 0.5)
         {
             pheromone[j][k] += mutation_strength;
             pheromone[k][j] = pheromone[j][k];

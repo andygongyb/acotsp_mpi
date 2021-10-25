@@ -54,6 +54,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <limits.h>
+#include "omp.h"
 
 #include "ls.h"
 #include "InOut.h"
@@ -80,6 +81,7 @@ long int * generate_random_permutation( long int n )
    long int  i, help, node, tot_assigned = 0;
    double    rnd;
    long int  *r;
+   int ti = omp_get_thread_num();
 
    r = malloc(n * sizeof(long int));  
 
@@ -88,7 +90,7 @@ long int * generate_random_permutation( long int n )
 
    for ( i = 0 ; i < n ; i++ ) {
      /* find (randomly) an index for a free unit */ 
-     rnd  = ran01 ( &seed );
+     rnd  = ran01 (thread_seed + ti);
      node = (long int) (rnd  * (n - tot_assigned)); 
      assert( i + node < n );
      help = r[i];

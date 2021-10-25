@@ -2,7 +2,7 @@
 VERSION=1.03
 
 CC=mpiicc
-OPTIM_FLAGS=-O3 -fPIE -march=native -std=c11 -qopenmp
+OPTIM_FLAGS=-O3 -fPIE -march=native -std=c11 -qopenmp -g
 WARN_FLAGS=-Wall -ansi -pedantic
 CFLAGS=$(WARN_FLAGS) $(OPTIM_FLAGS)
 # To change the default timer implementation, uncomment the line below

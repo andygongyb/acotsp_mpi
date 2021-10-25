@@ -97,7 +97,7 @@ void construct_solutions(void)
 
     TRACE(printf("construct solutions for all ants\n"););
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(guided)
     for (k = 0; k < n_ants; k++)
     {
         long int step = 0;
@@ -239,7 +239,7 @@ void local_search(void)
 
     TRACE(printf("apply local search to all ants\n"););
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(guided)
     for (k = 0; k < n_ants; k++)
     {
         switch (ls_flag)
@@ -590,16 +590,18 @@ void pheromone_trail_update(void)
     }
 }
 
-void ant_reduce(void *invec, void *inoutvec, int *len, MPI_Datatype *datatype) {
+void ant_reduce(void *invec, void *inoutvec, int *len, MPI_Datatype *datatype)
+{
 
-    long int * restrict in = invec;
-    long int * restrict inout = inoutvec;
+    long int *restrict in = invec;
+    long int *restrict inout = inoutvec;
 
     long int i;
 
     if (in[n + 1] < inout[n + 1])
     {
-        #pragma omp simd
+        // memcpy(inout, in, (n + 2) * sizeof(long int));
+#pragma omp simd
         for (i = 0; i < n + 2; ++i)
         {
             inout[i] = in[i];
@@ -634,10 +636,12 @@ int main(int argc, char *argv[])
     long int *gathered_tours = NULL;
 
     ant_struct a;
-    if (!rank) {
+    if (!rank)
+    {
         printf("n_procs: %d\n", procs);
         write_params();
         a.tour = calloc(n + 2, sizeof(long int));
+        // gathered_tours = malloc((n + 2) * procs * sizeof(long int));
     }
 
     instance.nn_list = compute_nn_lists();
@@ -653,11 +657,15 @@ int main(int argc, char *argv[])
     MPI_Type_contiguous(n + 2, MPI_LONG, &tour_type);
     MPI_Type_commit(&tour_type);
 
+    MPI_Status status;
+    MPI_Request req_ph = MPI_REQUEST_NULL, req_to = MPI_REQUEST_NULL;
+
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
     double comm_time = 0.0, comm_start = 0.0;
     double multi_node_time = 0.0, multi_node_start = 0.0;
     double single_node_time = 0.0, single_node_start = 0.0;
+    double reduce_time = 0.0, bcst_time = 0.0;
 
     // printf("Initialization took %.10f seconds\n", time_used);
 
@@ -677,20 +685,23 @@ int main(int argc, char *argv[])
 
             long int best_ant = find_best();
             ant[best_ant].tour[n + 1] = ant[best_ant].tour_length;
-            
+
             comm_start = MPI_Wtime();
             multi_node_time += comm_start - multi_node_start;
 
             MPI_Reduce(ant[best_ant].tour, a.tour, 1, tour_type, ant_reduce_op, 0, MPI_COMM_WORLD);
-            
+            // MPI_Gather(ant[best_ant].tour, n + 2, MPI_LONG, gathered_tours, n + 2, MPI_LONG, 0, MPI_COMM_WORLD);
+
             single_node_start = MPI_Wtime();
             comm_time += single_node_start - comm_start;
+            reduce_time += single_node_start - comm_start;
 
             if (!rank)
             {
                 a.tour_length = a.tour[n + 1];
 
                 update_statistics(&a);
+                // update_statistics(&ant[best_ant]);
 
                 pheromone_trail_update();
 
@@ -700,21 +711,30 @@ int main(int argc, char *argv[])
             comm_start = MPI_Wtime();
             single_node_time += comm_start - single_node_start;
 
-            MPI_Bcast(pheromone[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-            MPI_Bcast(total[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-            comm_time += MPI_Wtime() - comm_start;
+            MPI_Ibcast(pheromone[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &req_ph);
+            MPI_Ibcast(total[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &req_to);
+
+            MPI_Wait(&req_ph, &status);
+            MPI_Wait(&req_to, &status);
+
+            double t = MPI_Wtime() - comm_start;
+            comm_time += t;
+            bcst_time += t;
 
             iteration++;
         }
         if (!rank)
             exit_try(n_try);
     }
-    if (!rank) {
+    if (!rank)
+    {
         exit_program();
 
         double end = MPI_Wtime();
         printf("MPI wall time: %lf\n", end - start);
-        printf("MPI comm time: %lf\n", comm_time);
+        printf("MPI total comm time: %lf\n", comm_time);
+        printf("MPI reduce time: %lf\n", reduce_time);
+        printf("MPI bcst time: %lf\n", bcst_time);
         printf("MPI multi-node time: %lf\n", multi_node_time);
         printf("MPI single-node time: %lf\n", single_node_time);
     }
@@ -741,8 +761,10 @@ int main(int argc, char *argv[])
         free(prob_of_selection[i]);
     }
     free(prob_of_selection);
+    free(thread_seed);
 
-    if (!rank) {
+    if (!rank)
+    {
         free(a.tour);
     }
 

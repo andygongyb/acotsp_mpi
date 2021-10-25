@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include "mpi.h"
+#include "omp.h"
 
 #include "InOut.h"
 #include "utilities.h"
@@ -985,9 +986,10 @@ int parse_commandline(int argc, char *argv[])
   const char *progname;
   struct options options;
 
-  int procs, rank;
+  int procs, rank, nt;
   MPI_Comm_size(MPI_COMM_WORLD, &procs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  nt = omp_get_max_threads();
 
   progname = argv[0] != NULL && *(argv[0]) != '\0'
                  ? argv[0]
@@ -1068,6 +1070,13 @@ int parse_commandline(int argc, char *argv[])
   else
   {
     fprintf(stdout, "\tNote: a seed was generated as %ld\n", seed);
+  }
+
+  srand((unsigned int) seed);
+  thread_seed = malloc(nt * sizeof(long int));
+  for (i = 0; i < nt; ++i)
+  {
+    thread_seed[i] = rand();
   }
 
   if (options.opt_optimum)
