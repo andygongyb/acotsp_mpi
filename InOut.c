@@ -181,7 +181,7 @@ struct point * read_etsp(const char *tsp_file_name)
 	    fscanf(tsp_file, "%ld", &n);
 	    instance.n = n;
 	    TRACE ( printf("%ld\n", n); );
-	    assert ( n > 2 && n < 6000);
+	    assert ( n > 2);
 	    buf[0]=0;
 	}
 	else if ( strcmp("DIMENSION:", buf) == 0 ) {
