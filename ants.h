@@ -58,7 +58,7 @@ zero */
 
 #define EPSILON            0.00000000000000000000000000000001
 
-#define MAX_ANTS       4096    /* max no. of ants */
+#define MAX_ANTS       INT_MAX    /* max no. of ants */
 #define MAX_NEIGHBOURS 512     /* max. no. of nearest neighbours in candidate set */
 
 /* Note that *tour needs to be allocated for length n+1 since the first city of 
