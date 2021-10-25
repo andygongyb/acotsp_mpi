@@ -74,7 +74,7 @@ double **total;
 
 double **prob_of_selection;
 
-long int n_ants;  /* number of ants */
+long int n_ants; /* number of ants */
 long int total_ants;
 long int padded_ants;
 long int nn_ants; /* length of nearest neighbor lists for the ants'
@@ -148,7 +148,8 @@ void allocate_ants(void)
 
     prob_of_selection = malloc(nt * sizeof(double *));
     // printf("m: %ld\n", sizeof(double) * (nn_ants + 1) * nt);
-    for (i = 0; i < nt; ++i) {
+    for (i = 0; i < nt; ++i)
+    {
         if ((prob_of_selection[i] = malloc(sizeof(double) * (nn_ants + 1))) == NULL)
         {
             printf("Out of memory, exit.");
@@ -171,20 +172,23 @@ long int find_best(void)
     long int i;
     long int index = 0;
     long int min = ant[0].tour_length;
-    #pragma omp parallel
+#pragma omp parallel
     {
         long int index_local = index;
-        long int min_local = min;  
-        #pragma omp for nowait
-        for (i = 1; i < n_ants; i++) {        
-            if (ant[i].tour_length < min_local) {
+        long int min_local = min;
+#pragma omp for nowait
+        for (i = 1; i < n_ants; i++)
+        {
+            if (ant[i].tour_length < min_local)
+            {
                 min_local = ant[i].tour_length;
                 index_local = i;
             }
         }
-        #pragma omp critical 
+#pragma omp critical
         {
-            if (min_local < min) {
+            if (min_local < min)
+            {
                 min = min_local;
                 index = index_local;
             }
@@ -192,7 +196,6 @@ long int find_best(void)
     }
 
     return index;
-
 }
 
 long int find_worst(void)
@@ -206,20 +209,23 @@ long int find_worst(void)
     long int i;
     long int index = 0;
     long int max = ant[0].tour_length;
-    #pragma omp parallel
+#pragma omp parallel
     {
         long int index_local = index;
-        long int max_local = max;  
-        #pragma omp for nowait
-        for (i = 1; i < n_ants; i++) {        
-            if (ant[i].tour_length < max_local) {
+        long int max_local = max;
+#pragma omp for nowait
+        for (i = 1; i < n_ants; i++)
+        {
+            if (ant[i].tour_length < max_local)
+            {
                 max_local = ant[i].tour_length;
                 index_local = i;
             }
         }
-        #pragma omp critical 
+#pragma omp critical
         {
-            if (max_local < max) {
+            if (max_local < max)
+            {
                 max = max_local;
                 index = index_local;
             }
@@ -262,11 +268,11 @@ void init_pheromone_trails(double initial_trail)
 
     TRACE(printf(" init trails with %.15f\n", initial_trail););
 
-    /* Initialize pheromone trails */
-    #pragma omp parallel for
+/* Initialize pheromone trails */
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
-        #pragma omp simd
+#pragma omp simd
         for (j = 0; j <= n; j++)
         {
             pheromone[i][j] = initial_trail;
@@ -287,10 +293,10 @@ void evaporation(void)
 
     TRACE(printf("pheromone evaporation\n"););
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
-        #pragma omp simd
+#pragma omp simd
         for (j = 0; j <= n; j++)
         {
             pheromone[i][j] = (1 - rho) * pheromone[i][j];
@@ -314,13 +320,13 @@ void evaporation_nn_list(void)
 
     TRACE(printf("pheromone evaporation nn_list\n"););
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
         for (j = 0; j < nn_ants; j++)
         {
             help_city = instance.nn_list[i][j];
-            #pragma omp atomic
+#pragma omp atomic
             pheromone[i][help_city] = (1 - rho) * pheromone[i][help_city];
         }
     }
@@ -341,12 +347,12 @@ void global_update_pheromone(ant_struct *a)
 
     d_tau = 1.0 / (double)a->tour_length;
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
         j = a->tour[i];
         h = a->tour[i + 1];
-        #pragma omp critical
+#pragma omp critical
         {
             pheromone[j][h] += d_tau;
             pheromone[h][j] = pheromone[j][h];
@@ -369,12 +375,12 @@ void global_update_pheromone_weighted(ant_struct *a, long int weight)
 
     d_tau = (double)weight / (double)a->tour_length;
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
         j = a->tour[i];
         h = a->tour[i + 1];
-        #pragma omp critical
+#pragma omp critical
         {
             pheromone[j][h] += d_tau;
             pheromone[h][j] = pheromone[j][h];
@@ -393,7 +399,7 @@ void compute_total_information(void)
 
     TRACE(printf("compute total information\n"););
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
         for (j = 0; j < i; j++)
@@ -445,6 +451,7 @@ void ant_empty_memory(ant_struct *a)
 {
     long int i;
 
+#pragma omp simd
     for (i = 0; i < n; i++)
     {
         a->visited[i] = FALSE;
@@ -708,7 +715,7 @@ void check_pheromone_trail_limits(void)
 
     TRACE(printf("mmas specific: check pheromone trail limits\n"););
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
         for (j = 0; j < i; j++)
@@ -743,7 +750,7 @@ void check_nn_list_pheromone_trail_limits(void)
 
     TRACE(printf("mmas specific: check pheromone trail limits nn_list\n"););
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < n; i++)
     {
         for (j = 0; j < nn_ants; j++)

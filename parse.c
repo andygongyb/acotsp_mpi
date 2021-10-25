@@ -990,7 +990,7 @@ int parse_commandline(int argc, char *argv[])
   MPI_Comm_size(MPI_COMM_WORLD, &procs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   nt = omp_get_max_threads();
-
+  
   progname = argv[0] != NULL && *(argv[0]) != '\0'
                  ? argv[0]
                  : "acotsp";
@@ -1074,9 +1074,10 @@ int parse_commandline(int argc, char *argv[])
 
   srand((unsigned int) seed);
   thread_seed = malloc(nt * sizeof(long int));
-  for (i = 0; i < nt; ++i)
+  int j;
+  for (j = 0; j < nt; ++j)
   {
-    thread_seed[i] = rand();
+    thread_seed[j] = rand();
   }
 
   if (options.opt_optimum)
