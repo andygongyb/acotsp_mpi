@@ -671,7 +671,7 @@ int main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     // #endif
 
-    double start = MPI_Wtime();
+    double wtime = 0.0;
     double comm_time = 0.0, comm_start = 0.0;
     double multi_node_time = 0.0, multi_node_start = 0.0;
     double single_node_time = 0.0, single_node_start = 0.0;
@@ -743,9 +743,10 @@ int main(int argc, char *argv[])
             MPI_Wait(&req_to, &status);
             #endif
 
-            double t = MPI_Wtime() - comm_start;
-            comm_time += t;
-            bcst_time += t;
+            double t = MPI_Wtime();
+            comm_time += t - comm_start;
+            bcst_time += t - comm_start;
+            wtime += t - multi_node_start;
 
             iteration++;
         }
@@ -761,8 +762,7 @@ int main(int argc, char *argv[])
     {
         exit_program();
 
-        double end = MPI_Wtime();
-        printf("MPI wall time: %lf\n", end - start);
+        printf("MPI wall time: %lf\n", wtime);
         printf("MPI barrier time: %lf\n", barrier_time);
         printf("MPI total comm time: %lf\n", comm_time);
         printf("MPI reduce time: %lf\n", reduce_time);
