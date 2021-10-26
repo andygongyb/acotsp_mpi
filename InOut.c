@@ -597,7 +597,7 @@ void exit_try( long int ntry )
       COMMENTS:       
 */
 {
-  checkTour( best_so_far_ant->tour );
+//   checkTour( best_so_far_ant->tour );
 /*    printTourFile( best_so_far_ant->tour ); */
 
   printf("\n Best Solution in try %ld is %ld\n",ntry, best_so_far_ant->tour_length);

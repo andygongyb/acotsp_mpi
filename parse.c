@@ -986,9 +986,11 @@ int parse_commandline(int argc, char *argv[])
   const char *progname;
   struct options options;
 
-  int procs, rank, nt;
+  int procs = 1, rank = 0, nt;
+  #ifndef VTUNE
   MPI_Comm_size(MPI_COMM_WORLD, &procs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  #endif
   nt = omp_get_max_threads();
   
   progname = argv[0] != NULL && *(argv[0]) != '\0'

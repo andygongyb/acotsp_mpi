@@ -67,7 +67,11 @@
 #include "mpi.h"
 #include "omp.h"
 
-int procs, rank;
+#ifdef VTUNE
+#include "ittnotify.h"
+#endif
+
+int procs = 1, rank = 0;
 
 long int termination_condition(void)
 /*    
@@ -628,8 +632,11 @@ int main(int argc, char *argv[])
     start_timers();
 
     MPI_Init(&argc, &argv);
+
+    #ifndef VTUNE
     MPI_Comm_size(MPI_COMM_WORLD, &procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    #endif
 
     init_program(argc, argv);
 
@@ -650,6 +657,7 @@ int main(int argc, char *argv[])
 
     time_used = elapsed_time(VIRTUAL);
 
+    // #ifndef VTUNE
     MPI_Op ant_reduce_op;
     MPI_Op_create(ant_reduce, TRUE, &ant_reduce_op);
 
@@ -661,13 +669,20 @@ int main(int argc, char *argv[])
     MPI_Request req_ph = MPI_REQUEST_NULL, req_to = MPI_REQUEST_NULL;
 
     MPI_Barrier(MPI_COMM_WORLD);
+    // #endif
+
     double start = MPI_Wtime();
     double comm_time = 0.0, comm_start = 0.0;
     double multi_node_time = 0.0, multi_node_start = 0.0;
     double single_node_time = 0.0, single_node_start = 0.0;
+    double barrier_time = 0.0, barrier_start = 0.0;
     double reduce_time = 0.0, bcst_time = 0.0;
 
     // printf("Initialization took %.10f seconds\n", time_used);
+
+    #ifdef VTUNE
+    __itt_resume();
+    #endif
 
     for (n_try = 0; n_try < max_tries; n_try++)
     {
@@ -686,11 +701,18 @@ int main(int argc, char *argv[])
             long int best_ant = find_best();
             ant[best_ant].tour[n + 1] = ant[best_ant].tour_length;
 
-            comm_start = MPI_Wtime();
-            multi_node_time += comm_start - multi_node_start;
+            barrier_start = MPI_Wtime();
+            multi_node_time += barrier_start - multi_node_start;
 
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            comm_start = MPI_Wtime();
+            barrier_time += comm_start - barrier_start;
+
+            // #ifndef VTUNE
             MPI_Reduce(ant[best_ant].tour, a.tour, 1, tour_type, ant_reduce_op, 0, MPI_COMM_WORLD);
             // MPI_Gather(ant[best_ant].tour, n + 2, MPI_LONG, gathered_tours, n + 2, MPI_LONG, 0, MPI_COMM_WORLD);
+            // #endif
 
             single_node_start = MPI_Wtime();
             comm_time += single_node_start - comm_start;
@@ -698,10 +720,12 @@ int main(int argc, char *argv[])
 
             if (!rank)
             {
+                // #ifdef VTUNE
                 a.tour_length = a.tour[n + 1];
-
                 update_statistics(&a);
+                // #else
                 // update_statistics(&ant[best_ant]);
+                // #endif
 
                 pheromone_trail_update();
 
@@ -711,11 +735,13 @@ int main(int argc, char *argv[])
             comm_start = MPI_Wtime();
             single_node_time += comm_start - single_node_start;
 
+            #ifndef VTUNE
             MPI_Ibcast(pheromone[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &req_ph);
             MPI_Ibcast(total[0], n, MPI_DOUBLE, 0, MPI_COMM_WORLD, &req_to);
 
             MPI_Wait(&req_ph, &status);
             MPI_Wait(&req_to, &status);
+            #endif
 
             double t = MPI_Wtime() - comm_start;
             comm_time += t;
@@ -726,12 +752,18 @@ int main(int argc, char *argv[])
         if (!rank)
             exit_try(n_try);
     }
+
+    #ifdef VTUNE
+    __itt_pause();
+    #endif
+
     if (!rank)
     {
         exit_program();
 
         double end = MPI_Wtime();
         printf("MPI wall time: %lf\n", end - start);
+        printf("MPI barrier time: %lf\n", barrier_time);
         printf("MPI total comm time: %lf\n", comm_time);
         printf("MPI reduce time: %lf\n", reduce_time);
         printf("MPI bcst time: %lf\n", bcst_time);
@@ -768,7 +800,9 @@ int main(int argc, char *argv[])
         free(a.tour);
     }
 
+    #ifndef VTUNE
     MPI_Op_free(&ant_reduce_op);
+    #endif
     MPI_Finalize();
 
     return (0);
